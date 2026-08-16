@@ -22,7 +22,7 @@ impl McpClient {
         let config = ureq::Agent::config_builder()
             .timeout_global(Some(Duration::from_secs(timeout_seconds)))
             .max_redirects(0)
-            .user_agent(concat!("grep-cli/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("grepa/", env!("CARGO_PKG_VERSION")))
             .http_status_as_error(false)
             .build();
         Ok(Self {
@@ -35,7 +35,7 @@ impl McpClient {
     pub fn search(&mut self, options: &Options) -> Result<Vec<String>, String> {
         let initialize = json!({
             "jsonrpc": "2.0", "id": 1, "method": "initialize",
-            "params": {"protocolVersion": PROTOCOL_VERSION, "capabilities": {}, "clientInfo": {"name": "grep-cli", "version": env!("CARGO_PKG_VERSION")}}
+            "params": {"protocolVersion": PROTOCOL_VERSION, "capabilities": {}, "clientInfo": {"name": "grepa", "version": env!("CARGO_PKG_VERSION")}}
         });
         let initialize_result = self.request(Some(1), &initialize)?;
         validate_initialize_result(&initialize_result)?;

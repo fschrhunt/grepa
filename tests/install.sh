@@ -3,11 +3,11 @@
 set -eu
 
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
-TMP=$(mktemp -d "${TMPDIR:-/tmp}/grep-cli-install-test.XXXXXX")
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/grepa-install-test.XXXXXX")
 trap 'rm -rf -- "${TMP:?}"' EXIT HUP INT TERM
 MOCK_BIN="$TMP/mock-bin"
 ASSETS="$TMP/assets"
-LATEST_URL="https://api.github.com/repos/fschrhunt/grep-cli/releases/latest"
+LATEST_URL="https://api.github.com/repos/fschrhunt/grepa/releases/latest"
 mkdir -p "$MOCK_BIN" "$ASSETS"
 
 cat > "$MOCK_BIN/uname" <<'EOF'
@@ -59,13 +59,13 @@ reset_install_state() {
 make_assets() {
     version=$1
     target=$2
-    archive="grep-cli-$version-$target.tar.gz"
-    prefix="grep-cli-$version-$target"
+    archive="grepa-$version-$target.tar.gz"
+    prefix="grepa-$version-$target"
 
     rm -rf -- "${ASSETS:?}" "${TMP:?}/package"
     mkdir -p "$ASSETS" "$TMP/package/$prefix"
-    printf '#!/bin/sh\necho grep-cli\n' > "$TMP/package/$prefix/grep-cli"
-    chmod 755 "$TMP/package/$prefix/grep-cli"
+    printf '#!/bin/sh\necho grepa\n' > "$TMP/package/$prefix/grepa"
+    chmod 755 "$TMP/package/$prefix/grepa"
     tar -czf "$ASSETS/$archive" -C "$TMP/package" "$prefix"
     sum=$(archive_checksum "$ASSETS/$archive")
     printf '%s  %s\n' "$sum" "$archive" > "$ASSETS/SHA256SUMS"
@@ -76,15 +76,15 @@ run_install() {
     arch=$2
     version=$3
     target=$4
-    archive="grep-cli-$version-$target.tar.gz"
+    archive="grepa-$version-$target.tar.gz"
 
     HOME="$TMP/home" \
-    GREP_CLI_VERSION="$version" \
-    GREP_CLI_BIN_DIR="$TMP/bin" \
+    GREPA_VERSION="$version" \
+    GREPA_BIN_DIR="$TMP/bin" \
     INSTALL_TEST_ASSETS="$ASSETS" \
     EXPECT_LATEST_URL="$LATEST_URL" \
-    EXPECT_CHECKSUM_URL="https://github.com/fschrhunt/grep-cli/releases/download/v$version/SHA256SUMS" \
-    EXPECT_ARCHIVE_URL="https://github.com/fschrhunt/grep-cli/releases/download/v$version/$archive" \
+    EXPECT_CHECKSUM_URL="https://github.com/fschrhunt/grepa/releases/download/v$version/SHA256SUMS" \
+    EXPECT_ARCHIVE_URL="https://github.com/fschrhunt/grepa/releases/download/v$version/$archive" \
     EXPECTED_ARCHIVE="$archive" \
     MOCK_LATEST_VERSION="$version" \
     MOCK_OS="$os" \
@@ -98,14 +98,14 @@ run_latest_install() {
     arch=$2
     version=$3
     target=$4
-    archive="grep-cli-$version-$target.tar.gz"
+    archive="grepa-$version-$target.tar.gz"
 
     HOME="$TMP/home" \
-    GREP_CLI_BIN_DIR="$TMP/bin" \
+    GREPA_BIN_DIR="$TMP/bin" \
     INSTALL_TEST_ASSETS="$ASSETS" \
     EXPECT_LATEST_URL="$LATEST_URL" \
-    EXPECT_CHECKSUM_URL="https://github.com/fschrhunt/grep-cli/releases/download/v$version/SHA256SUMS" \
-    EXPECT_ARCHIVE_URL="https://github.com/fschrhunt/grep-cli/releases/download/v$version/$archive" \
+    EXPECT_CHECKSUM_URL="https://github.com/fschrhunt/grepa/releases/download/v$version/SHA256SUMS" \
+    EXPECT_ARCHIVE_URL="https://github.com/fschrhunt/grepa/releases/download/v$version/$archive" \
     EXPECTED_ARCHIVE="$archive" \
     MOCK_LATEST_VERSION="$version" \
     MOCK_OS="$os" \
@@ -115,7 +115,7 @@ run_latest_install() {
 }
 
 assert_installed() {
-    [ -x "$TMP/bin/grep-cli" ] || {
+    [ -x "$TMP/bin/grepa" ] || {
         echo "installer did not install binary for $1" >&2
         exit 1
     }
@@ -127,8 +127,8 @@ exercise_mapping() {
     target=$3
 
     reset_install_state
-    make_assets 0.1.0 "$target"
-    run_install "$os" "$arch" 0.1.0 "$target"
+    make_assets 0.2.0 "$target"
+    run_install "$os" "$arch" 0.2.0 "$target"
     assert_installed "$target"
 }
 
@@ -138,32 +138,32 @@ exercise_mapping Linux x86_64 x86_64-unknown-linux-gnu
 exercise_mapping Linux aarch64 aarch64-unknown-linux-gnu
 
 reset_install_state
-make_assets 0.1.0 x86_64-apple-darwin
-run_latest_install Darwin x86_64 0.1.0 x86_64-apple-darwin
+make_assets 0.2.0 x86_64-apple-darwin
+run_latest_install Darwin x86_64 0.2.0 x86_64-apple-darwin
 assert_installed latest
 
 reset_install_state
-make_assets 0.1.0 x86_64-apple-darwin
-printf '%064d  grep-cli-0.1.0-x86_64-apple-darwin.tar.gz\n' 0 > "$ASSETS/SHA256SUMS"
-if run_install Darwin x86_64 0.1.0 x86_64-apple-darwin; then
+make_assets 0.2.0 x86_64-apple-darwin
+printf '%064d  grepa-0.2.0-x86_64-apple-darwin.tar.gz\n' 0 > "$ASSETS/SHA256SUMS"
+if run_install Darwin x86_64 0.2.0 x86_64-apple-darwin; then
     echo "installer accepted an invalid checksum" >&2
     exit 1
 fi
 
 reset_install_state
-if run_install FreeBSD x86_64 0.1.0 x86_64-apple-darwin; then
+if run_install FreeBSD x86_64 0.2.0 x86_64-apple-darwin; then
     echo "installer accepted an unsupported platform" >&2
     exit 1
 fi
 
 reset_install_state
-make_assets 0.1.0 x86_64-apple-darwin
+make_assets 0.2.0 x86_64-apple-darwin
 mkdir -p "$TMP/bin"
-ln -s "$TMP/not-a-binary" "$TMP/bin/grep-cli"
-if run_install Darwin x86_64 0.1.0 x86_64-apple-darwin; then
+ln -s "$TMP/not-a-binary" "$TMP/bin/grepa"
+if run_install Darwin x86_64 0.2.0 x86_64-apple-darwin; then
     echo "installer replaced a symlink" >&2
     exit 1
 fi
-[ -L "$TMP/bin/grep-cli" ] || { echo "installer changed symlink" >&2; exit 1; }
+[ -L "$TMP/bin/grepa" ] || { echo "installer changed symlink" >&2; exit 1; }
 
 printf '%s\n' 'installer tests passed'

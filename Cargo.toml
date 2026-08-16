@@ -1,10 +1,10 @@
 [package]
-name = "grep-cli"
-version = "0.1.0"
+name = "grepa"
+version = "0.2.0"
 edition = "2021"
 description = "Small safe CLI for the grep.app MCP server"
 license = "MIT"
-repository = "https://github.com/fschrhunt/grep-cli"
+repository = "https://github.com/fschrhunt/grepa"
 
 [dependencies]
 lexopt = "0.3"
