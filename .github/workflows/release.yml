@@ -110,7 +110,9 @@ jobs:
           cp "target/$TARGET/release/grep-cli" "$PREFIX/grep-cli"
           cp README.md LICENSE "$PREFIX/"
           tar -czf "$ARCHIVE" "$PREFIX"
-          tar -tzf "$ARCHIVE" | grep -qx "$PREFIX/grep-cli"
+          tar -tzf "$ARCHIVE" > archive-entries.txt
+          grep -qx "$PREFIX/grep-cli" archive-entries.txt
+          rm archive-entries.txt
       - name: Upload release archive
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
