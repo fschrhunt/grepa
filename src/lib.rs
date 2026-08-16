@@ -1,4 +1,4 @@
-//! Core parsing, transport, rendering, and argument handling for grep-cli.
+//! Core parsing, transport, rendering, and argument handling for grepa.
 
 pub mod args;
 pub mod parse;

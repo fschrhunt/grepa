@@ -104,20 +104,20 @@ jobs:
         run: |
           set -euo pipefail
           cargo build --locked --release --target "$TARGET"
-          PREFIX="grep-cli-$VERSION-$TARGET"
+          PREFIX="grepa-$VERSION-$TARGET"
           ARCHIVE="$PREFIX.tar.gz"
           mkdir "$PREFIX"
-          cp "target/$TARGET/release/grep-cli" "$PREFIX/grep-cli"
+          cp "target/$TARGET/release/grepa" "$PREFIX/grepa"
           cp README.md LICENSE "$PREFIX/"
           tar -czf "$ARCHIVE" "$PREFIX"
           tar -tzf "$ARCHIVE" > archive-entries.txt
-          grep -qx "$PREFIX/grep-cli" archive-entries.txt
+          grep -qx "$PREFIX/grepa" archive-entries.txt
           rm archive-entries.txt
       - name: Upload release archive
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: archive-${{ matrix.target }}
-          path: grep-cli-${{ inputs.version }}-${{ matrix.target }}.tar.gz
+          path: grepa-${{ inputs.version }}-${{ matrix.target }}.tar.gz
           if-no-files-found: error
           retention-days: 1
 
@@ -153,15 +153,15 @@ jobs:
             aarch64-unknown-linux-gnu \
             x86_64-unknown-linux-gnu
           do
-            PREFIX="grep-cli-$VERSION-$TARGET"
+            PREFIX="grepa-$VERSION-$TARGET"
             ARCHIVE="$PREFIX.tar.gz"
             test -f "$ARCHIVE"
             tar -tzf "$ARCHIVE" | LC_ALL=C sort > actual.txt
-            printf '%s\n' "$PREFIX/" "$PREFIX/LICENSE" "$PREFIX/README.md" "$PREFIX/grep-cli" | LC_ALL=C sort > expected.txt
+            printf '%s\n' "$PREFIX/" "$PREFIX/LICENSE" "$PREFIX/README.md" "$PREFIX/grepa" | LC_ALL=C sort > expected.txt
             cmp actual.txt expected.txt
             rm actual.txt expected.txt
           done
-          sha256sum grep-cli-"$VERSION"-*.tar.gz > SHA256SUMS
+          sha256sum grepa-"$VERSION"-*.tar.gz > SHA256SUMS
       - name: Extract release notes
         env:
           VERSION: ${{ inputs.version }}
@@ -201,7 +201,7 @@ jobs:
           else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag -a "v$VERSION" "$SOURCE_SHA" -m "grep-cli v$VERSION"
+            git tag -a "v$VERSION" "$SOURCE_SHA" -m "grepa v$VERSION"
             if ! git push "https://x-access-token:$TOKEN@github.com/${{ github.repository }}.git" "refs/tags/v$VERSION"; then
               echo "tag push did not succeed; checking whether the remote tag already exists" >&2
             fi
@@ -222,23 +222,23 @@ jobs:
         run: |
           set -euo pipefail
           assets=(
-            release-assets/grep-cli-"$VERSION"-*.tar.gz
+            release-assets/grepa-"$VERSION"-*.tar.gz
             release-assets/SHA256SUMS
           )
           if gh release view "v$VERSION" >/dev/null 2>&1; then
             gh release edit "v$VERSION" \
-              --title "grep-cli v$VERSION" \
+              --title "grepa v$VERSION" \
               --notes-file RELEASE_NOTES.md
             gh release upload "v$VERSION" --clobber "${assets[@]}"
           else
             if ! gh release create "v$VERSION" \
               --verify-tag \
-              --title "grep-cli v$VERSION" \
+              --title "grepa v$VERSION" \
               --notes-file RELEASE_NOTES.md \
               "${assets[@]}"; then
               if gh release view "v$VERSION" >/dev/null 2>&1; then
                 gh release edit "v$VERSION" \
-                  --title "grep-cli v$VERSION" \
+                  --title "grepa v$VERSION" \
                   --notes-file RELEASE_NOTES.md
                 gh release upload "v$VERSION" --clobber "${assets[@]}"
               else

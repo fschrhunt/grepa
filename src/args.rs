@@ -39,7 +39,7 @@ pub enum ParseOutcome {
 }
 
 /// Usage text kept compact enough for terminal help.
-pub const USAGE: &str = "Usage: grep-cli [OPTIONS] QUERY\n\nSearch public GitHub code through mcp.grep.app.\n\nOptions:\n      --match-case             Match case exactly\n      --match-whole-words      Match whole words only\n      --use-regexp             Treat QUERY as a regular expression\n      --repo VALUE             Limit to a repository\n      --path VALUE             Limit to a file path\n      --language VALUE         Limit to a language (repeatable)\n      --json                   Emit typed JSON results\n      --color auto|always|never Color human output (default: auto)\n      --timeout SECONDS        Network timeout, 1–300 seconds (default: 15)\n  -h, --help                   Show this help\n  -V, --version                Show version\n\nUse `--` before a query that begins with a hyphen.";
+pub const USAGE: &str = "Usage: grepa [OPTIONS] QUERY\n\nSearch public GitHub code through mcp.grep.app.\n\nOptions:\n      --match-case             Match case exactly\n      --match-whole-words      Match whole words only\n      --use-regexp             Treat QUERY as a regular expression\n      --repo VALUE             Limit to a repository\n      --path VALUE             Limit to a file path\n      --language VALUE         Limit to a language (repeatable)\n      --json                   Emit typed JSON results\n      --color auto|always|never Color human output (default: auto)\n      --timeout SECONDS        Network timeout, 1–300 seconds (default: 15)\n  -h, --help                   Show this help\n  -V, --version                Show version\n\nUse `--` before a query that begins with a hyphen.";
 
 /// Parse argv excluding the program name, returning clear user-facing errors.
 pub fn parse<I, T>(args: I) -> Result<ParseOutcome, String>
@@ -47,7 +47,7 @@ where
     I: IntoIterator<Item = T>,
     T: Into<std::ffi::OsString>,
 {
-    let program = std::iter::once(std::ffi::OsString::from("grep-cli"));
+    let program = std::iter::once(std::ffi::OsString::from("grepa"));
     let mut parser = lexopt::Parser::from_iter(program.chain(args.into_iter().map(Into::into)));
     let mut query = None;
     let mut match_case = false;

@@ -143,8 +143,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "grep-cli"
-version = "0.1.0"
+name = "grepa"
+version = "0.2.0"
 dependencies = [
  "lexopt",
  "serde",

@@ -1,10 +1,10 @@
 #!/bin/sh
-# Install a checksum-verified grep-cli release without a package manager.
+# Install a checksum-verified grepa release without a package manager.
 set -eu
 
-REPOSITORY="fschrhunt/grep-cli"
-VERSION="${GREP_CLI_VERSION:-}"
-BIN_DIR="${GREP_CLI_BIN_DIR:-$HOME/.local/bin}"
+REPOSITORY="fschrhunt/grepa"
+VERSION="${GREPA_VERSION:-}"
+BIN_DIR="${GREPA_BIN_DIR:-$HOME/.local/bin}"
 API="https://api.github.com/repos/$REPOSITORY/releases/latest"
 
 fail() { printf '%s\n' "error: $*" >&2; exit 1; }
@@ -17,7 +17,7 @@ need grep
 need mktemp
 need sed
 
-TMP=$(mktemp -d "${TMPDIR:-/tmp}/grep-cli-install.XXXXXX") || fail "could not create temporary directory"
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/grepa-install.XXXXXX") || fail "could not create temporary directory"
 STAGED=""
 cleanup() {
     [ -z "$STAGED" ] || rm -f -- "$STAGED"
@@ -26,7 +26,7 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 
 if [ -z "$VERSION" ]; then
-    curl --proto '=https' --tlsv1.2 -fsSL "$API" -o "$TMP/latest.json" || fail "could not determine the latest grep-cli release"
+    curl --proto '=https' --tlsv1.2 -fsSL "$API" -o "$TMP/latest.json" || fail "could not determine the latest grepa release"
     VERSION=$(sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"v\([^"]*\)".*/\1/p' "$TMP/latest.json" | head -n 1)
 fi
 printf '%s\n' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' || fail "version must be semantic versioning without a v prefix"
@@ -42,11 +42,11 @@ case "$OS/$ARCH" in
 esac
 
 BASE="https://github.com/$REPOSITORY/releases/download/v$VERSION"
-ARCHIVE="grep-cli-$VERSION-$TARGET.tar.gz"
-PREFIX="grep-cli-$VERSION-$TARGET"
-ENTRY="$PREFIX/grep-cli"
+ARCHIVE="grepa-$VERSION-$TARGET.tar.gz"
+PREFIX="grepa-$VERSION-$TARGET"
+ENTRY="$PREFIX/grepa"
 
-printf 'Downloading grep-cli %s for %s...\n' "$VERSION" "$TARGET"
+printf 'Downloading grepa %s for %s...\n' "$VERSION" "$TARGET"
 curl --proto '=https' --tlsv1.2 -fsSL "$BASE/$ARCHIVE" -o "$TMP/$ARCHIVE" || fail "could not download $ARCHIVE"
 curl --proto '=https' --tlsv1.2 -fsSL "$BASE/SHA256SUMS" -o "$TMP/SHA256SUMS" || fail "could not download release checksums"
 EXPECTED=$(awk -v file="$ARCHIVE" '$2 == file { print $1; exit }' "$TMP/SHA256SUMS")
@@ -67,17 +67,17 @@ SOURCE="$TMP/$ENTRY"
 [ -f "$SOURCE" ] && [ ! -L "$SOURCE" ] || fail "release archive binary is not a regular file"
 
 mkdir -p "$BIN_DIR" || fail "could not create $BIN_DIR"
-TARGET_PATH="$BIN_DIR/grep-cli"
+TARGET_PATH="$BIN_DIR/grepa"
 if [ -e "$TARGET_PATH" ] || [ -L "$TARGET_PATH" ]; then
     [ -f "$TARGET_PATH" ] && [ ! -L "$TARGET_PATH" ] || fail "refusing to replace symlink or non-regular target: $TARGET_PATH"
 fi
-STAGED=$(mktemp "$BIN_DIR/.grep-cli.XXXXXX") || fail "could not stage binary in $BIN_DIR"
+STAGED=$(mktemp "$BIN_DIR/.grepa.XXXXXX") || fail "could not stage binary in $BIN_DIR"
 cp "$SOURCE" "$STAGED" || fail "could not stage binary"
 chmod 755 "$STAGED" || fail "could not make binary executable"
 mv -f "$STAGED" "$TARGET_PATH" || fail "could not install binary"
 STAGED=""
 
-printf 'Installed grep-cli %s to %s\n' "$VERSION" "$TARGET_PATH"
+printf 'Installed grepa %s to %s\n' "$VERSION" "$TARGET_PATH"
 case ":$PATH:" in
     *":$BIN_DIR:"*) ;;
     *) printf 'Add %s to your PATH.\n' "$BIN_DIR" ;;
