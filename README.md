@@ -1,14 +1,24 @@
-# grep-app-lite
+# grep-cli
 
 A small, safe blocking CLI for searching public GitHub code through the official [`https://mcp.grep.app`](https://mcp.grep.app) MCP service. It deliberately has no terminal UI, syntax highlighter, async runtime, or MCP framework.
 
 ## Install
 
+Install the latest native release:
+
 ```sh
-cargo install --locked --git https://github.com/fschrhunt/grep-app-lite
+curl -fsSL https://raw.githubusercontent.com/fschrhunt/grep-cli/main/scripts/install.sh | sh
 ```
 
-From a local checkout:
+The installer downloads the release archive and its `SHA256SUMS` file, checks the archive integrity against that published checksum before extracting the expected binary, and installs `grep-cli` to `~/.local/bin`. Set `GREP_CLI_VERSION` to install a specific version or `GREP_CLI_BIN_DIR` to choose another binary directory. Native releases support macOS and Linux on x86_64/amd64 and arm64/aarch64; Linux release binaries require glibc.
+
+Checksums help detect corruption or tampering of the downloaded archive, but they do not authenticate the release by themselves. For musl-based Linux systems, Cargo remains the fallback:
+
+```sh
+cargo install --locked --git https://github.com/fschrhunt/grep-cli
+```
+
+From a source checkout:
 
 ```sh
 cargo build --locked --release
@@ -17,7 +27,7 @@ cargo build --locked --release
 ## Usage
 
 ```text
-grep-app-lite [OPTIONS] QUERY
+grep-cli [OPTIONS] QUERY
 
       --match-case
       --match-whole-words
@@ -33,13 +43,21 @@ grep-app-lite [OPTIONS] QUERY
 Examples:
 
 ```sh
-grep-app-lite 'useState(' --language TypeScript --language TSX
-grep-app-lite --repo rust-lang/rust --path compiler --match-case 'struct Foo'
-grep-app-lite --json --use-regexp '(?s)try {.*await'
-grep-app-lite -- -a-leading-query
+grep-cli 'useState(' --language TypeScript --language TSX
+grep-cli --repo rust-lang/rust --path compiler --match-case 'struct Foo'
+grep-cli --json --use-regexp '(?s)try {.*await'
+grep-cli -- -a-leading-query
 ```
 
 Use `--` before a query that begins with `-`. `--help` and `--version` are available.
+
+## Development
+
+Run the offline installer tests with:
+
+```sh
+sh tests/install.sh
+```
 
 ## Security and operational behavior
 

@@ -5,7 +5,7 @@ use std::{
     io::{self, BufWriter, Write},
 };
 
-use grep_app_lite::{
+use grep_cli::{
     args::{self, ParseOutcome},
     parse::parse_search_texts,
     render,
@@ -37,7 +37,7 @@ impl fmt::Display for AppError {
 
 fn main() {
     if let Err(error) = run() {
-        eprintln!("grep-app-lite: {error}");
+        eprintln!("grep-cli: {error}");
         std::process::exit(error.exit_code());
     }
 }
@@ -47,7 +47,7 @@ fn run() -> Result<(), AppError> {
     let options = match args::parse(std::env::args_os().skip(1)).map_err(AppError::Usage)? {
         ParseOutcome::Help => return write_info(args::USAGE),
         ParseOutcome::Version => {
-            return write_info(concat!("grep-app-lite ", env!("CARGO_PKG_VERSION")))
+            return write_info(concat!("grep-cli ", env!("CARGO_PKG_VERSION")))
         }
         ParseOutcome::Run(options) => options,
     };

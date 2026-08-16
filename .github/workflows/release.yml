@@ -1,0 +1,246 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version from VERSION, Cargo.toml, and CHANGELOG.md (without v)
+        required: true
+        type: string
+      confirmation:
+        description: Type release to create and publish the tag
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    if: inputs.confirmation == 'release'
+    runs-on: ubuntu-latest
+    outputs:
+      source-sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - id: source
+        name: Pin release source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Install stable Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup component add rustfmt clippy
+      - name: Validate release inputs
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          SOURCE_SHA=$(git rev-parse HEAD)
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || {
+            echo "version must be semantic versioning without a v prefix" >&2
+            exit 1
+          }
+          test "$(cat VERSION)" = "$VERSION"
+          cargo metadata --locked --no-deps --format-version 1 > metadata.json
+          python3 -c 'import json, os; assert json.load(open("metadata.json"))["packages"][0]["version"] == os.environ["VERSION"]'
+          grep -qx "## $VERSION" CHANGELOG.md
+          if git rev-parse -q --verify "refs/tags/v$VERSION^{commit}" >/dev/null 2>&1; then
+            TAG_SHA=$(git rev-parse "refs/tags/v$VERSION^{commit}")
+            [ "$TAG_SHA" = "$SOURCE_SHA" ] || {
+              echo "existing tag v$VERSION points to $TAG_SHA, expected $SOURCE_SHA" >&2
+              exit 1
+            }
+          fi
+      - name: Run quality checks
+        run: |
+          cargo fmt --check
+          cargo clippy --locked --all-targets --all-features -- -D warnings
+          cargo test --locked
+          cargo build --locked --release
+          sh -n scripts/install.sh
+          sh tests/install.sh
+
+  build:
+    needs: validate
+    if: inputs.confirmation == 'release'
+    name: build ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.validate.outputs.source-sha }}
+          persist-credentials: false
+      - name: Install stable Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add "${{ matrix.target }}"
+      - name: Build release archive
+        env:
+          VERSION: ${{ inputs.version }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          cargo build --locked --release --target "$TARGET"
+          PREFIX="grep-cli-$VERSION-$TARGET"
+          ARCHIVE="$PREFIX.tar.gz"
+          mkdir "$PREFIX"
+          cp "target/$TARGET/release/grep-cli" "$PREFIX/grep-cli"
+          cp README.md LICENSE "$PREFIX/"
+          tar -czf "$ARCHIVE" "$PREFIX"
+          tar -tzf "$ARCHIVE" | grep -qx "$PREFIX/grep-cli"
+      - name: Upload release archive
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: archive-${{ matrix.target }}
+          path: grep-cli-${{ inputs.version }}-${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: [validate, build]
+    if: inputs.confirmation == 'release'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.validate.outputs.source-sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - name: Download release archives
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          pattern: archive-*
+          merge-multiple: true
+          path: release-assets
+      - name: Verify archives and generate checksums
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          cd release-assets
+          for TARGET in \
+            aarch64-apple-darwin \
+            x86_64-apple-darwin \
+            aarch64-unknown-linux-gnu \
+            x86_64-unknown-linux-gnu
+          do
+            PREFIX="grep-cli-$VERSION-$TARGET"
+            ARCHIVE="$PREFIX.tar.gz"
+            test -f "$ARCHIVE"
+            tar -tzf "$ARCHIVE" | LC_ALL=C sort > actual.txt
+            printf '%s\n' "$PREFIX/" "$PREFIX/LICENSE" "$PREFIX/README.md" "$PREFIX/grep-cli" | LC_ALL=C sort > expected.txt
+            cmp actual.txt expected.txt
+            rm actual.txt expected.txt
+          done
+          sha256sum grep-cli-"$VERSION"-*.tar.gz > SHA256SUMS
+      - name: Extract release notes
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          awk -v heading="## $VERSION" '
+            $0 == heading { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          test -s RELEASE_NOTES.md
+      - name: Ensure release tag exists and matches source
+        env:
+          VERSION: ${{ inputs.version }}
+          SOURCE_SHA: ${{ needs.validate.outputs.source-sha }}
+          TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          remote_tag_commit() {
+            git ls-remote origin "refs/tags/v$VERSION" "refs/tags/v$VERSION^{}" | awk -v ref="refs/tags/v$VERSION" '
+              $2 == ref { base = $1 }
+              $2 == ref "^{}" { peeled = $1 }
+              END {
+                if (peeled != "") {
+                  print peeled
+                } else if (base != "") {
+                  print base
+                }
+              }
+            '
+          }
+          TAG_SHA=$(remote_tag_commit)
+          if [ -n "$TAG_SHA" ]; then
+            [ "$TAG_SHA" = "$SOURCE_SHA" ] || {
+              echo "existing remote tag v$VERSION points to $TAG_SHA, expected $SOURCE_SHA" >&2
+              exit 1
+            }
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "v$VERSION" "$SOURCE_SHA" -m "grep-cli v$VERSION"
+            if ! git push "https://x-access-token:$TOKEN@github.com/${{ github.repository }}.git" "refs/tags/v$VERSION"; then
+              echo "tag push did not succeed; checking whether the remote tag already exists" >&2
+            fi
+            TAG_SHA=$(remote_tag_commit)
+            [ -n "$TAG_SHA" ] || {
+              echo "remote tag v$VERSION was not created" >&2
+              exit 1
+            }
+            [ "$TAG_SHA" = "$SOURCE_SHA" ] || {
+              echo "remote tag v$VERSION points to $TAG_SHA, expected $SOURCE_SHA" >&2
+              exit 1
+            }
+          fi
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          assets=(
+            release-assets/grep-cli-"$VERSION"-*.tar.gz
+            release-assets/SHA256SUMS
+          )
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            gh release edit "v$VERSION" \
+              --title "grep-cli v$VERSION" \
+              --notes-file RELEASE_NOTES.md
+            gh release upload "v$VERSION" --clobber "${assets[@]}"
+          else
+            if ! gh release create "v$VERSION" \
+              --verify-tag \
+              --title "grep-cli v$VERSION" \
+              --notes-file RELEASE_NOTES.md \
+              "${assets[@]}"; then
+              if gh release view "v$VERSION" >/dev/null 2>&1; then
+                gh release edit "v$VERSION" \
+                  --title "grep-cli v$VERSION" \
+                  --notes-file RELEASE_NOTES.md
+                gh release upload "v$VERSION" --clobber "${assets[@]}"
+              else
+                exit 1
+              fi
+            fi
+          fi

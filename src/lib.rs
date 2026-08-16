@@ -1,4 +1,4 @@
-//! Core parsing, transport, rendering, and argument handling for grep-app-lite.
+//! Core parsing, transport, rendering, and argument handling for grep-cli.
 
 pub mod args;
 pub mod parse;
