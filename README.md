@@ -24,6 +24,14 @@ From a source checkout:
 cargo build --locked --release
 ```
 
+## AI agent skill
+
+The repository includes an [Agent Skills](https://agentskills.io/) compatible skill that teaches coding agents when and how to search public code with `grepa`:
+
+```sh
+npx skills add fschrhunt/grepa
+```
+
 ## Usage
 
 ```text

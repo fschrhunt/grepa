@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add an Agent Skills compatible workflow for public code research with `grepa`.
+
 ## 0.2.0
 
 - Breaking rename from `grep-cli` to `grepa`, including release installer and package names.
